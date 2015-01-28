@@ -239,6 +239,9 @@
         };
     }
 
+</script>
+<script>
+
     // save the download event to the server using a web socket
     function save_download(item_id, user_id) {
         if (!("WebSocket" in window)) {
@@ -315,7 +318,7 @@
         web_socket.onclose = function () {
             web_socket = undefined;
 
-            $('#connectionStatus').text("Not connected");
+            $('#connectionStatus').text("");
             console.log("Connection closed");
         };
     }
@@ -355,6 +358,8 @@
         location.assign(new_url);
     }
 
+</script>
+<script>
 
     // determine if HTML5 storage is supported by this browser
     function supports_html5_storage() {

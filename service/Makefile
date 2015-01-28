@@ -21,8 +21,7 @@ CLOUDILIBS= -pz /usr/local/lib/cloudi-1.3.3/lib/cloudi_core-1.3.3 -pz /usr/local
 DIALYZERLIBS= -pa /usr/local/lib/cloudi-1.3.3/lib/cloudi_core-1.3.3 -pa /usr/local/lib/cloudi-1.3.3/lib/cloudi_core-1.3.3/ebin 
 
 CLOUDI_HTTP=http://localhost:6467/cloudi/api/erlang
-#BOOK_HTTP=http://localhost:6467/recommend/book
-BOOK_HTTP=http://www.impactsoftwarelabs.com:6467/recommend/book
+BOOK_HTTP=http://localhost:6467/recommend/book
 
 
 #
