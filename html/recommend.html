@@ -45,6 +45,7 @@
    <!-- start of content -->
    <div data-role="content" data-theme="b">
     <form name="recommendation_form" id="recommendation_form">
+     <input type="hidden" name="rating_in_progress" id="rating_in_progress" value=""></input>
      <input type="hidden" name="user_id" id="user_id" value=""></input>
      <input type="hidden" name="select_item" id="select_item" value=""></input>
 
@@ -60,15 +61,17 @@
          onclick="createNewUser()" rel="external">OK</a>
      </div>
 
+     <div name="newly_created_user" id="newly_created_user">
+      <p>A new ID has been assigned to you and will be used for personalized recommendations.  
+The next step is to visit the New and Popular tabs of this web site and download books of interest. Afterwards you will be asked to rate the books and your ratings will be used to suggest additional books that match your preferences.</p>
+     </div>
+
      <div name="returning_user" id="returning_user" >
         <!-- display rating list -->
 	<div name="rating_section" id="rating_section">
             <p>Please rate the following items on a scale from 1 to 5 with 5 being highest</p>
-
             <div name="rating_list" id="rating_list">
 	    </div> 
-
-            <a data-role="button" data-icon="check" data-inline="true" onclick="submitRating(); return false;">Submit Ratings</a>
 	</div>
 
 	<!-- display recommendations -->
@@ -139,7 +142,7 @@
             };
 
             // define function that is called when data is received from the web socket
-            handle_message = function (data) {
+            handle_message_newuser = function (data) {
                 if (data.startsWith("notification:")) {
                     // client state check to determine this is an incoming
                     // service request, not an incoming response
@@ -161,8 +164,9 @@
                     // save the user id in local storage
                     localStorage["book_user_id"] = user_id;
             
-		    // hide the new user div
+		    // hide the new user div and display an informational message
                     $("#new_user").hide();
+                    $("#newly_created_user").show();
 
                     // close the web socket
                     web_socket_newuser.close();
@@ -182,11 +186,11 @@
                     reader.readAsText(data, "text/plain");
                     reader.onload = function (reader_evt) {
                         data = reader_evt.target.result;
-                        handle_message(data);
+                        handle_message_newuser(data);
                     };
                 }
                 else {
-                    handle_message(data);
+                    handle_message_newuser(data);
                 }
             };
 
@@ -203,11 +207,22 @@
 <script>
 
 	// send the user's ratings to the server for processing
-        function submitRating() {
-            console.log("submitRating function starts");	 
+        function submitRating(itemID) {
+            console.log("submitRating function starts with itemID=" + itemID);	 
             var service_name = "/recommend/book/rate";
+	    var rating_in_progress = $("#rating_in_progress").text();
 	    var user_id = $("#user_id").text();
-            
+
+            // check if a rating operation is currently in process 
+            if (rating_in_progress == "yes") {
+                return
+            } else {
+                $("#rating_in_progress").text("yes");
+
+                // disable the slider button so that it can not be submitted again
+                $("#btn" + itemID).button('disable');
+            }
+
 	    if (!("WebSocket" in window)) {
                 $('#connectionStatus').text("Not connected");
                 alert("This browser does not support WebSockets");
@@ -225,17 +240,14 @@
                 $('#connectionStatus').text("Connected");
                 console.log("Connected");
 
-    	        // iterate over ever range slider in the rating list
-	        $('.myslide').each(function (index, Element) {
-//		    console.log("value of element " + index + " is " + $(Element).val());
-//		    console.log("ID of element " + index + " is " + $(Element).data("id"));
-                    web_socket_rated.send("id=" + $(Element).data("id") + "&user=" + user_id + "&rating=" + $(Element).val());
-                 });
+		// send the rating to the server
+		var rating = $("#slider" + itemID).val();
+                web_socket_rated.send("id=" + itemID + "&user=" + user_id + "&rating=" + rating); 
 
             };
 
             // define function that is called when data is received from the web socket
-            handle_message = function (data) {
+            handle_message_rated = function (data) {
                 if (data.startsWith("notification:")) {
                     // client state check to determine this is an incoming
                     // service request, not an incoming response
@@ -262,8 +274,10 @@
                 // close the web socket
                 web_socket_rated.close();
 
-		// hide the rating section
-		$("#rating_section").hide();
+                // clear the rating in progress flag
+                $("#rating_in_progress").text("no");
+
+		alert("Rating saved"); 
             };
 
             // define a function to handle message events
@@ -275,11 +289,11 @@
                     reader.readAsText(data, "text/plain");
                     reader.onload = function (reader_evt) {
                         data = reader_evt.target.result;
-                        handle_message(data);
+                        handle_message_rated(data);
                     };
                 }
                 else {
-                    handle_message(data);
+                    handle_message_rated(data);
                 }
             };
 
@@ -325,7 +339,7 @@
             };
 
             // define function that is called when data is received from the web socket
-            handle_message = function (data) {
+            handle_message_recommend = function (data) {
                 if (data.startsWith("notification:")) {
                     // client state check to determine this is an incoming
                     // service request, not an incoming response
@@ -367,11 +381,11 @@
                     reader.readAsText(data, "text/plain");
                     reader.onload = function (reader_evt) {
                         data = reader_evt.target.result;
-                        handle_message(data);
+                        handle_message_recommend(data);
                     };
                 }
                 else {
-                    handle_message(data);
+                    handle_message_recommend(data);
                 }
             };
 
@@ -413,7 +427,7 @@
             };
 
             // define function that is called when data is received from the web socket
-            handle_message = function (data) {
+            handle_message_unrated = function (data) {
                 if (data.startsWith("notification:")) {
                     // client state check to determine this is an incoming
                     // service request, not an incoming response
@@ -455,11 +469,11 @@
                     reader.readAsText(data, "text/plain");
                     reader.onload = function (reader_evt) {
                         data = reader_evt.target.result;
-                        handle_message(data);
+                        handle_message_unrated(data);
                     };
                 }
                 else {
-                    handle_message(data);
+                    handle_message_unrated(data);
                 }
             };
 
@@ -514,10 +528,18 @@
             //console.log("Item ID = " + item.id);
 
 	    var slider_id = "slider" + item.id;
-	    var tag = "<div class=\"ui-field-contain\"><div data-role=\"rangeslider\">";
+	    var tag = "<div class=\"ui-field-contain\">";
+            
+	    tag = tag + "<div data-role=\"rangeslider\">";
 	    tag = tag + "<label for=\"" + slider_id + "\">" + item.title + "</label>";
-            tag = tag + "<input class=\"myslide\" type=\"range\" name=\""  + slider_id + "\" id=\"" + slider_id + "\" value=\"1\" min=\"1\" max=\"5\" data-highlight=\"true\" data-id=\"" + item.id + "\" />";
-             tag = tag + "</div></div>";
+            tag = tag + "<input class=\"myslide\" type=\"range\" name=\""  + slider_id + "\" id=\"" + slider_id + "\" value=\"1\" min=\"1\" max=\"5\" data-highlight=\"true\" data-id=\"" + item.id + "\" data-mini=\"true\" />";
+             tag = tag + "</div>";
+
+	    tag = tag + "<div data-role=\"fieldcontain\">";
+            tag = tag + "<input type=\"button\" value=\"Rate\" id=\"btn" + item.id + "\" data-icon=\"check\" data-inline=\"true\" onclick=\"submitRating(" + item.id + "); return false;\"></input>";
+
+             tag = tag + "</div>";
+             tag = tag + "</div>";
 	     console.log("tag=" + tag);
 
 
@@ -602,6 +624,9 @@
 
             // hide the new user div
             $("#new_user").hide();
+                    
+            // hide the newly created user div
+	    $("#newly_created_user").hide();
 
             // hide the rating section div
 	    $("#rating_section").hide();

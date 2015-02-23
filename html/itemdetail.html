@@ -122,7 +122,8 @@
   <!-- end of new page -->
   <script>
     //App custom javascript
-    var web_socket = undefined;
+    var web_socket_detail = undefined;
+    var web_socket_download = undefined;
     var host_url = "ws://127.0.0.1:6464";
     var service_name = "/recommend/book/allbooks";
     var download_service_name = "/recommend/book/download";
@@ -141,6 +142,38 @@
         return this.slice(0, str.length) == str;
     };
 
+
+    // fetch item detail data 
+    function get_item_details(item_id) {
+
+        // check the local session storage to see if the data is already available
+        if (sessionStorage.itemdetail) {
+            // parse data and add to list
+            console.log("Getting saved data ");
+            var data = sessionStorage.itemdetail;
+            var obj = JSON.parse(data);
+
+            // parse the saved data
+            var saved_item_id = "";
+            $.each(obj, function (i, item) {
+                saved_item_id = item.id;
+            });
+	
+            if (item_id == saved_item_id) {
+                console.log("Using saved data ");
+                parse_data(obj);
+	    } else {
+                // fetch data from the server if the saved data does not have the details that we need
+                get_item_details_from_server(item_id);
+            }
+        }
+        else {
+            // fetch data from the server if it is not available locally
+            get_item_details_from_server(item_id);
+        }
+    }
+
+
     // get item details from the server using a web socket
     function get_item_details_from_server(item_id) {
 
@@ -152,26 +185,26 @@
 
         $('#connectionStatus').text("Connecting");
         var final_url = host_url + service_name;
-        web_socket = new WebSocket(final_url);
+        web_socket_detail = new WebSocket(final_url);
 
         console.log("Connecting to " + final_url);
 
         // define function that is called when the web socket is opened
-        web_socket.onopen = function () {
+        web_socket_detail.onopen = function () {
             $('#connectionStatus').text("Connected");
             console.log("Connected");
-            web_socket.send(item_id);
+            web_socket_detail.send(item_id);
         };
 
         // define function that is called when data is received from the web socket
-        handle_message = function (data) {
+        handle_message_detail = function (data) {
             if (data.startsWith("notification:")) {
                 // client state check to determine this is an incoming
                 // service request, not an incoming response
                 console.log("Request (in): " + data);
 
                 var response = "ok";
-                web_socket.send(response);
+                web_socket_detail.send(response);
                 console.log("Response (in): " + response);
 
             }
@@ -185,36 +218,24 @@
                 }
                 else if (data != "got connect! yay!") {
                     $('#connectionStatus').text("Displaying data");
+
+                    // store in local cache
+                    console.log("Saving data in session storage");
+                    sessionStorage.itemdetail = data;
+
+		    // display data on page
                     var obj = JSON.parse(data);
-
-                    // add item details to the web page
-                    $.each(obj, function (i, item) {
-                        $("#item_ID").text(item.id);
-                        $("#title").text(item.title);
-                        $("#subject").text(item.subject);
-                        $("#creator").text(item.creator);
-                        //			$("#date_created").text(item.created);
-                        $("#language_code").text(item.language);
-                        $("#downloads").text(item.downloads);
-
-                        if (item.web_page != "undefined") {
-                            $('#web_page').attr('href', item.web_page);
-                        }
-                        else {
-                            $('#web_page').hide();
-                        }
-                    });
+                    parse_data(obj);
                     $('#connectionStatus').text("");
-
                 }
             }
 
             // close the web socket
-            close();
+            web_socket_detail.close();
         };
 
         // define a function to handle message events
-        web_socket.onmessage = function (evt) {
+        web_socket_detail.onmessage = function (evt) {
             var data = evt.data;
             if (is("Blob", data)) {
                 // for the example, treat binary as text
@@ -222,17 +243,17 @@
                 reader.readAsText(data, "text/plain");
                 reader.onload = function (reader_evt) {
                     data = reader_evt.target.result;
-                    handle_message(data);
+                    handle_message_detail(data);
                 };
             }
             else {
-                handle_message(data);
+                handle_message_detail(data);
             }
         };
 
         // define a function to run when the web socket is closed
-        web_socket.onclose = function () {
-            web_socket = undefined;
+        web_socket_detail.onclose = function () {
+            web_socket_detail = undefined;
 
             $('#connectionStatus').text("");
             console.log("Connection closed");
@@ -252,26 +273,26 @@
 
         $('#connectionStatus').text("Connecting");
         var final_url = host_url + download_service_name;
-        web_socket = new WebSocket(final_url);
+        web_socket_download = new WebSocket(final_url);
 
         console.log("Connecting to " + final_url);
 
         // define function that is called when the web socket is opened
-        web_socket.onopen = function () {
+        web_socket_download.onopen = function () {
             $('#connectionStatus').text("Connected");
             console.log("Connected");
-            web_socket.send(item_id + "," + user_id);
+            web_socket_download.send(item_id + "," + user_id);
             console.log("Request (out): " + request_type);
         };
 
-        handle_message = function (data) {
+        handle_message_download = function (data) {
             if (data.startsWith("notification:")) {
                 // client state check to determine this is an incoming
                 // service request, not an incoming response
                 console.log("Request (in): " + data);
 
                 var response = "ok";
-                web_socket.send(response);
+                web_socket_download.send(response);
                 console.log("Response (in): " + response);
 
             }
@@ -296,10 +317,10 @@
             }
 
             // close the web socket
-            close();
+            web_socket_download.close();
         };
 
-        web_socket.onmessage = function (evt) {
+        web_socket_download.onmessage = function (evt) {
             var data = evt.data;
             if (is("Blob", data)) {
                 // for the example, treat binary as text
@@ -307,31 +328,22 @@
                 reader.readAsText(data, "text/plain");
                 reader.onload = function (reader_evt) {
                     data = reader_evt.target.result;
-                    handle_message(data);
+                    handle_message_download(data);
                 };
             }
             else {
-                handle_message(data);
+                handle_message_download(data);
             }
         };
 
-        web_socket.onclose = function () {
-            web_socket = undefined;
+        web_socket_download.onclose = function () {
+            web_socket_download = undefined;
 
             $('#connectionStatus').text("");
             console.log("Connection closed");
         };
     }
 
-    // close the server connection
-    function close() {
-        $('#connectionStatus').text("Not connected");
-
-        if (web_socket == undefined) {
-            return;
-        }
-        web_socket.close();
-    }
   </script>
   <script>
 
@@ -410,8 +422,8 @@
 	// get the user id if available
 	get_user_id();
 
-        // get item details from the server 
-        get_item_details_from_server(item_id);
+        // get item details 
+        get_item_details(item_id);
 
     });
 
@@ -420,6 +432,34 @@
         var results = new RegExp('[\\?&]' + name + '=([^&#]*)').exec(window.location.href);
         return results[1] || 0;
     }
+  </script>
+
+  <script>
+    // display data on the web page
+    function parse_data(obj) {
+        console.log("Parse data starts");
+
+        // add item details to the web page
+        $.each(obj, function (i, item) {
+            $("#item_ID").text(item.id);
+            $("#title").text(item.title);
+            $("#subject").text(item.subject);
+            $("#creator").text(item.creator);
+            //			$("#date_created").text(item.created);
+            $("#language_code").text(item.language);
+            $("#downloads").text(item.downloads);
+
+            if (item.web_page != "undefined") {
+                $('#web_page').attr('href', item.web_page);
+                $('#web_page').show();
+            }
+            else {
+                $('#web_page').hide();
+            }
+        });
+        console.log("Parse data ends");
+    }
+
   </script>
  </body>
 </html>

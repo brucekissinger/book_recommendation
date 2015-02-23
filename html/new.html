@@ -92,6 +92,7 @@
 
     // fetch data for this web page
     function get_data() {
+
         // check the local session storage to see if the data is already available
         if (sessionStorage.newItems) {
             // parse data and add to list
@@ -99,11 +100,11 @@
             var obj = JSON.parse(data);
 	    console.log("Using saved data ");
             parse_data(obj);
-        }
-        else {
+        } else {
             // fetch data from the server if it is not available locally
             get_data_from_server();
         }
+
     }
 
     // fetch data from the server using a web socket
