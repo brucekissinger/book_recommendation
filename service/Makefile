@@ -12,13 +12,13 @@ PATH_CONF=path.conf
 #
 ERLC=/usr/bin/erlc
 ERLCFLAGS=-o
-BASE_DIR=/opt/cloudi/book
+BASE_DIR=/opt/book/service
 EBIN_DIR=$(BASE_DIR)/ebin
 DOC_DIR=$(BASE_DIR)/edoc
 SRC_DIR=$(BASE_DIR)
 
-CLOUDILIBS= -pz /usr/local/lib/cloudi-1.3.3/lib/cloudi_core-1.3.3 -pz /usr/local/lib/cloudi-1.3.3/lib/cloudi_core-1.3.3/ebin 
-DIALYZERLIBS= -pa /usr/local/lib/cloudi-1.3.3/lib/cloudi_core-1.3.3 -pa /usr/local/lib/cloudi-1.3.3/lib/cloudi_core-1.3.3/ebin 
+CLOUDILIBS= -pz /usr/local/lib/cloudi-1.4.0/lib/cloudi_core-1.4.0 -pz /usr/local/lib/cloudi-1.4.0/lib/cloudi_core-1.4.0/ebin 
+DIALYZERLIBS= -pa /usr/local/lib/cloudi-1.4.0/lib/cloudi_core-1.4.0 -pa /usr/local/lib/cloudi-1.4.0/lib/cloudi_core-1.4.0/ebin 
 
 CLOUDI_HTTP=http://localhost:6467/cloudi/api/erlang
 BOOK_HTTP=http://localhost:6467/recommend/book
@@ -100,7 +100,7 @@ test:
 	curl $(BOOK_HTTP)/newbooks
 #	curl $(BOOK_HTTP)/popularbooks
 #	curl $(BOOK_HTTP)/recommendedbooks?user=1
-#	curl $(BOOK_HTTP)/allbooks?id=340
+#	curl $(BOOK_HTTP)/allbooks?id=47675
 #	curl -X POST -d "item=45388" $(BOOK_HTTP) 
 
 	

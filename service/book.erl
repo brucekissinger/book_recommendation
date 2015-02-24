@@ -18,7 +18,7 @@
 -include_lib("cloudi_core/include/cloudi_logger.hrl").
 
 % Optional include needed to run PropEr test suite
--include_lib("proper/include/proper.hrl").
+%-include_lib("proper/include/proper.hrl").
 
 %% record definition
 -record(state,
@@ -85,7 +85,7 @@ cloudi_service_handle_request(Type, Name, Pattern, _RequestInfo, Request,
                               _Timeout, _Priority, _TransId, _Pid,
                               #state{} = State, Dispatcher) ->
     
-    	?LOG_DEBUG("Handle Request: Type=~p, Name=~p, Pattern=~p, Request=~p", [Type, Name, Pattern, Request]),
+    	?LOG_INFO("Handle Request: Type=~p, Name=~p, Pattern=~p, Request=~p", [Type, Name, Pattern, Request]),
 
 	% based on the pattern and request, perform the appropriate action
 	case Pattern of
@@ -134,8 +134,9 @@ cloudi_service_handle_request(Type, Name, Pattern, _RequestInfo, Request,
 			
 			Rating_tokens = string:tokens(Rating_list, "="),
 			["rating", Rating] = Rating_tokens,
+			{Rating_as_integer, _} = string:to_integer(Rating),	
 
-			ReplyRecord = add_rating(Item_id, User_id, string:to_integer(Rating), Dispatcher);
+			ReplyRecord = add_rating(Item_id, User_id, Rating_as_integer, Dispatcher);
 			
 		"/recommend/book/post" ->
 			List = binary_to_list(Request),
@@ -219,7 +220,7 @@ find_item(Id, Dispatcher) ->
 -spec find_new(dispatcher_type()) -> record_type().
 find_new(Dispatcher) ->
 
-	Query = "select  id, title from items where date_created > date_sub(curdate(),interval 60 day) order by date_created desc", 
+	Query = "select  id, title from items where date_created > date_sub(curdate(),interval 30 day) order by date_created desc", 
 	?LOG_DEBUG("query=~p", [Query]),
 
 	Status = cloudi_service:send_sync(Dispatcher, 
