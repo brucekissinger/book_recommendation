@@ -1,5 +1,5 @@
 %% @author Bruce Kissinger
-%% @version 0.0.1
+%% @version 1.1.0
 
 % @doc This module provides a common service for the Book Recommendation system.
 %It leverages the CloudI framework to provide a cloud-based service that can be used by many different programming languages.
@@ -10,10 +10,10 @@
 -behaviour(cloudi_service).
 
 %% cloudi_service callbacks
--export([cloudi_service_init/3,
+-export([cloudi_service_init/4,
          cloudi_service_handle_request/11,
          cloudi_service_handle_info/3,
-         cloudi_service_terminate/2]).
+         cloudi_service_terminate/3]).
 
 -include_lib("cloudi_core/include/cloudi_logger.hrl").
 
@@ -61,19 +61,17 @@
 %%%------------------------------------------------------------------------
 
 %% @doc Initialize the internal service
-%%-spec cloudi_service_init(_, _, _) -> ok_state_type.
--spec cloudi_service_init(_, _, dispatcher_type()) -> ok_state_type().
-cloudi_service_init(_Args, _Prefix, Dispatcher) ->
+%%-spec cloudi_service_init(_Args, _Prefix, _Timeout, dispatcher_type()) -> ok_state_type.
+-spec cloudi_service_init(_, _, _, dispatcher_type()) -> ok_state_type().
+cloudi_service_init(_Args, _Prefix, _Timeout, Dispatcher) ->
 
 	% subscribe to different request patterns
 	cloudi_service:subscribe(Dispatcher, "newbooks/get"),
 	cloudi_service:subscribe(Dispatcher, "popularbooks/get"),
 	cloudi_service:subscribe(Dispatcher, "recommendedbooks/get"),
 	cloudi_service:subscribe(Dispatcher, "allbooks/get"),
-	%cloudi_service:subscribe(Dispatcher, "allbooks/post"),
 	cloudi_service:subscribe(Dispatcher, "download/get"),
 	cloudi_service:subscribe(Dispatcher, "rate/get"),
-	%cloudi_service:subscribe(Dispatcher, "download/post"),
 	cloudi_service:subscribe(Dispatcher, "newuser/get"),
 	cloudi_service:subscribe(Dispatcher, "unrated/get"),
 
@@ -107,7 +105,6 @@ cloudi_service_handle_request(Type, Name, Pattern, _RequestInfo, Request,
 			end;
 
 		"/recommend/book/allbooks/get" ->
-			% parse the item id
 			ReplyRecord = find_item(Request, Dispatcher);
 		"/recommend/book/download/get" ->
 			%TODO: change the item_id and user_id to be passed correctly per spec
@@ -165,6 +162,11 @@ cloudi_service_handle_request(Type, Name, Pattern, _RequestInfo, Request,
 					ReplyRecord = cloudi_x_jsx:encode(["Could not match request"])
 			end;
 
+
+%		"/recommend/book/utility/totaldownloads/get" ->
+%			Answer = get_total_downloads(Dispatcher),
+%			ReplyRecord = list_to_binary(integer_to_list(Answer));
+
 		_ ->
 			ReplyRecord = cloudi_x_jsx:encode(["Invalid Request"])
 	end,
@@ -172,16 +174,16 @@ cloudi_service_handle_request(Type, Name, Pattern, _RequestInfo, Request,
 	% send reply
         ?LOG_DEBUG("Sending reply=~p", [ReplyRecord]),
 	{reply, ReplyRecord, State}.
-
+ 
 
 %% @doc Handle an incoming Erlang message
 cloudi_service_handle_info(Request, State, _) ->
     ?LOG_INFO("Message received\"~p\"", [Request]),
     {noreply, State}.
 
--spec cloudi_service_terminate(_, _) -> ok.
+-spec cloudi_service_terminate(_Reason, _Timeout, _) -> ok.
 %% @doc Terminate the service
-cloudi_service_terminate(_, #state{}) -> ok.  
+cloudi_service_terminate(_Reason, _Timeout, #state{}) -> ok.  
 
 %%%------------------------------------------------------------------------
 %%% Service functions

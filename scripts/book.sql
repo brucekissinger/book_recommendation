@@ -17,7 +17,7 @@ SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='TRADITIONAL,ALLOW_INVALID_DATES';
 -- -----------------------------------------------------
 -- Schema book
 -- -----------------------------------------------------
-CREATE SCHEMA IF NOT EXISTS `book` DEFAULT CHARACTER SET latin1 ;
+CREATE SCHEMA IF NOT EXISTS `book` DEFAULT CHARACTER SET utf8;
 USE `book` ;
 
 -- -----------------------------------------------------
@@ -86,6 +86,15 @@ ENGINE = MyISAM
 AUTO_INCREMENT = 28
 DEFAULT CHARACTER SET = latin1;
 
+CREATE VIEW `book`.`subjects_vw` as (
+       SELECT distinct(substring_index(subject, '--',1)) as short_subject 
+       FROM items 
+);
+
+CREATE VIEW `book`.`authors_vw` as (
+       SELECT distinct(creator) as author
+       FROM items 
+);
 
 SET SQL_MODE=@OLD_SQL_MODE;
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
