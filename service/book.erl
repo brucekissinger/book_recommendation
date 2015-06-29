@@ -1,5 +1,5 @@
 %% @author Bruce Kissinger
-%% @version 1.1.0
+%% @version 1.2.0
 
 % @doc This module provides a common service for the Book Recommendation system.
 %It leverages the CloudI framework to provide a cloud-based service that can be used by many different programming languages.
@@ -37,8 +37,9 @@
 	downloads	
     }).
 
-%% Define the name of the CloudI database service 
+%% Define constant values 
 -define(NAME_MYSQL, "/db/mysql/book").
+-define(NAME_FOLSOM_NOTIFY, "/folsom/notify/get").
 
 %% Define common types
 -type any_type() :: any().
@@ -75,6 +76,10 @@ cloudi_service_init(_Args, _Prefix, _Timeout, Dispatcher) ->
 	cloudi_service:subscribe(Dispatcher, "newuser/get"),
 	cloudi_service:subscribe(Dispatcher, "unrated/get"),
 
+        % create new folsom metrics
+        cloudi_x_folsom_metrics:new_counter(book_requests),
+        cloudi_x_folsom_metrics:new_counter(sql_queries),
+
     	{ok, #state{}}.
 
 %% @doc Handle an incoming service request 
@@ -84,6 +89,10 @@ cloudi_service_handle_request(Type, Name, Pattern, _RequestInfo, Request,
                               #state{} = State, Dispatcher) ->
     
     	?LOG_INFO("Handle Request: Type=~p, Name=~p, Pattern=~p, Request=~p", [Type, Name, Pattern, Request]),
+
+        % increment the book requests metric
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{book_requests, {inc, 1}}">>, undefined, undefined),
+
 
 	% based on the pattern and request, perform the appropriate action
 	case Pattern of
@@ -200,6 +209,9 @@ find_item(Id, Dispatcher) ->
 	Query = string:concat("select id, title, creator, lang, date_created, web_page, subject, download_quantity from items where id=", Id), 
 	?LOG_DEBUG("query=~p", [Query]),
 
+        % increment the sql query metric
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{sql_queries, {inc, 1}}">>, undefined, undefined),
+
 	Status = cloudi_service:send_sync(Dispatcher, 
 		?NAME_MYSQL, 
 		<<>>, 
@@ -225,6 +237,9 @@ find_new(Dispatcher) ->
 	Query = "select  id, title from items where date_created > date_sub(curdate(),interval 30 day) order by date_created desc", 
 	?LOG_DEBUG("query=~p", [Query]),
 
+        % increment the sql query metric
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{sql_queries, {inc, 1}}">>, undefined, undefined),
+
 	Status = cloudi_service:send_sync(Dispatcher, 
 		?NAME_MYSQL, 
 		<<>>, 
@@ -249,6 +264,10 @@ find_popular(Dispatcher) ->
 
 	Query = "select id, title from items order by download_quantity desc limit 300", 
 	?LOG_DEBUG("query=~p", [Query]),
+
+        % increment the sql query metric
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{sql_queries, {inc, 1}}">>, undefined, undefined),
+
 
 	Status = cloudi_service:send_sync(Dispatcher, 
 		?NAME_MYSQL, 
@@ -276,6 +295,9 @@ add_rating(Item_id, User_id, Rating, Dispatcher) ->
 	Query = lists:concat(["INSERT INTO user_item_ratings (user_id, item_id, rating) values (", User_id,  ",", Item_id, ",",  Rating, ")"]),
 	?LOG_DEBUG("query=~p", [Query]),
 
+        % increment the sql query metric
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{sql_queries, {inc, 1}}">>, undefined, undefined),
+
 	Status = cloudi_service:send_sync(Dispatcher, 
 		?NAME_MYSQL, 
 		<<>>, 
@@ -301,6 +323,9 @@ get_recommended_items(User_id, Dispatcher) ->
 	Query = string:concat("select id, title from items left join user_item_recommendations on items.id = user_item_recommendations.item_id where user_item_recommendations.user_id=", User_id), 
 	?LOG_DEBUG("query=~p", [Query]),
 
+        % increment the sql query metric
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{sql_queries, {inc, 1}}">>, undefined, undefined),
+
 	Status = cloudi_service:send_sync(Dispatcher, 
 		?NAME_MYSQL, 
 		<<>>, 
@@ -325,6 +350,9 @@ find_unrated_items(User_id, Dispatcher) ->
 
 	Query = string:concat("select id, title from items inner join user_items on items.id = user_items.item_id where user_items.rated_flag='N' and user_items.user_id=", User_id), 
 	?LOG_DEBUG("query=~p", [Query]),
+
+        % increment the sql query metric
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{sql_queries, {inc, 1}}">>, undefined, undefined),
 
 	Status = cloudi_service:send_sync(Dispatcher, 
 		?NAME_MYSQL, 
@@ -352,6 +380,9 @@ add_user_item(User_id, Item_id, Dispatcher) ->
 	Query= lists:concat(["INSERT INTO user_items (user_id, item_id, rated_flag) values (",  User_id, ",", Item_id, ",'N')"]), 
 	?LOG_DEBUG("query=~p", [Query]),
 
+        % increment the sql query metric
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{sql_queries, {inc, 1}}">>, undefined, undefined),
+
 	Status = cloudi_service:send_sync(Dispatcher, 
 		?NAME_MYSQL, 
 		<<>>, 
@@ -376,6 +407,9 @@ update_user_item(User_id, Item_id, Rated_flag, Dispatcher) ->
 	Query= lists:concat(["UPDATE user_items set rated_flag='", Rated_flag, "' where user_id=", User_id, " and item_id=", Item_id]), 
 	?LOG_DEBUG("query=~p", [Query]),
 
+        % increment the sql query metric
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{sql_queries, {inc, 1}}">>, undefined, undefined),
+
 	Status = cloudi_service:send_sync(Dispatcher, 
 		?NAME_MYSQL, 
 		<<>>, 
@@ -399,6 +433,9 @@ add_user(Dispatcher) ->
 
 	Query= lists:concat(["INSERT INTO users (user_id, date_created) values (null, now());"]), 
 	?LOG_DEBUG("query=~p", [Query]),
+
+        % increment the sql query metric
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{sql_queries, {inc, 1}}">>, undefined, undefined),
 
 	Status = cloudi_service:send_sync(Dispatcher, 
 		?NAME_MYSQL, 
@@ -426,6 +463,9 @@ get_last_insert_id(Dispatcher) ->
 
 	Query= lists:concat(["SELECT last_insert_id();"]), 
 	?LOG_DEBUG("query=~p", [Query]),
+
+        % increment the sql query metric
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{sql_queries, {inc, 1}}">>, undefined, undefined),
 
 	Status = cloudi_service:send_sync(Dispatcher, 
 		?NAME_MYSQL, 
