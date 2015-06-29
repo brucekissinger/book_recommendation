@@ -97,8 +97,8 @@ code_path:
 	curl $(CLOUDI_HTTP)/code_path 
 
 test: 
-#	curl $(BOOK_HTTP)/newbooks
-	curl $(BOOK_HTTP)/popularbooks
+	curl $(BOOK_HTTP)/newbooks
+#	curl $(BOOK_HTTP)/popularbooks
 #	curl $(BOOK_HTTP)/recommendedbooks?user=1
 #	curl $(BOOK_HTTP)/allbooks?id=47675
 #	curl -X POST -d "item=45388" $(BOOK_HTTP) 
