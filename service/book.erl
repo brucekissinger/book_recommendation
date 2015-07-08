@@ -1,5 +1,5 @@
 %% @author Bruce Kissinger
-%% @version 1.2.0
+%% @version 1.3.0
 
 % @doc This module provides a common service for the Book Recommendation system.
 %It leverages the CloudI framework to provide a cloud-based service that can be used by many different programming languages.
@@ -39,6 +39,7 @@
 
 %% Define constant values 
 -define(NAME_MYSQL, "/db/mysql/book").
+-define(NAME_FOLSOM_NEW, "/folsom/new_counter/get").
 -define(NAME_FOLSOM_NOTIFY, "/folsom/notify/get").
 
 %% Define common types
@@ -76,9 +77,27 @@ cloudi_service_init(_Args, _Prefix, _Timeout, Dispatcher) ->
 	cloudi_service:subscribe(Dispatcher, "newuser/get"),
 	cloudi_service:subscribe(Dispatcher, "unrated/get"),
 
-        % create new folsom metrics
-        cloudi_x_folsom_metrics:new_counter(book_requests),
-        cloudi_x_folsom_metrics:new_counter(sql_queries),
+        % create new monitoring metrics
+%        cloudi_x_folsom_metrics:new_counter(total_requests),
+%        cloudi_x_folsom_metrics:new_counter(new_books),
+%        cloudi_x_folsom_metrics:new_counter(popular_books),
+%        cloudi_x_folsom_metrics:new_counter(recommended_books),
+%        cloudi_x_folsom_metrics:new_counter(book_details),
+%        cloudi_x_folsom_metrics:new_counter(book_downloads),
+%        cloudi_x_folsom_metrics:new_counter(book_rating),
+%        cloudi_x_folsom_metrics:new_counter(new_user),
+%        cloudi_x_folsom_metrics:new_counter(unrated_books),
+%        cloudi_x_folsom_metrics:new_counter(sql_queries),
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NEW, <<>>, <<"total_requests">>, undefined, undefined),
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NEW, <<>>, <<"new_books">>, undefined, undefined),
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NEW, <<>>, <<"popular_books">>, undefined, undefined),
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NEW, <<>>, <<"recommended_books">>, undefined, undefined),
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NEW, <<>>, <<"book_details">>, undefined, undefined),
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NEW, <<>>, <<"book_downloads">>, undefined, undefined),
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NEW, <<>>, <<"book_rating">>, undefined, undefined),
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NEW, <<>>, <<"new_user">>, undefined, undefined),
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NEW, <<>>, <<"unrated_books">>, undefined, undefined),
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NEW, <<>>, <<"sql_queries">>, undefined, undefined),
 
     	{ok, #state{}}.
 
@@ -91,12 +110,11 @@ cloudi_service_handle_request(Type, Name, Pattern, _RequestInfo, Request,
     	?LOG_INFO("Handle Request: Type=~p, Name=~p, Pattern=~p, Request=~p", [Type, Name, Pattern, Request]),
 
         % increment the book requests metric
-        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{book_requests, {inc, 1}}">>, undefined, undefined),
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{total_requests, {inc, 1}}">>, undefined, undefined),
 
 
 	% based on the pattern and request, perform the appropriate action
-	case Pattern of
-		"/recommend/book/newbooks/get" ->
+	case Pattern of "/recommend/book/newbooks/get" ->
 			ReplyRecord = find_new(Dispatcher);
 		"/recommend/book/popularbooks/get" ->
 			ReplyRecord = find_popular(Dispatcher);
@@ -204,7 +222,8 @@ cloudi_service_terminate(_Reason, _Timeout, #state{}) -> ok.
 -spec find_item(item_id_type(), dispatcher_type()) -> record_type().
 %find_item(Id, Dispatcher) when is_integer(Id) ->
 find_item(Id, Dispatcher) ->
-	?LOG_DEBUG("find_item Id =~p", [Id]),
+        % increment the monitoring metric for this request
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{book_details, {inc, 1}}">>, undefined, undefined),
 
 	Query = string:concat("select id, title, creator, lang, date_created, web_page, subject, download_quantity from items where id=", Id), 
 	?LOG_DEBUG("query=~p", [Query]),
@@ -233,6 +252,8 @@ find_item(Id, Dispatcher) ->
 
 -spec find_new(dispatcher_type()) -> record_type().
 find_new(Dispatcher) ->
+        % increment the monitoring metric for this request
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{new_books, {inc, 1}}">>, undefined, undefined),
 
 	Query = "select  id, title from items where date_created > date_sub(curdate(),interval 30 day) order by date_created desc", 
 	?LOG_DEBUG("query=~p", [Query]),
@@ -261,6 +282,8 @@ find_new(Dispatcher) ->
 
 -spec find_popular(dispatcher_type()) -> record_type().
 find_popular(Dispatcher) ->
+        % increment the monitoring metric for this request
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{popular_books, {inc, 1}}">>, undefined, undefined),
 
 	Query = "select id, title from items order by download_quantity desc limit 300", 
 	?LOG_DEBUG("query=~p", [Query]),
@@ -290,7 +313,8 @@ find_popular(Dispatcher) ->
 
 %-spec add_rating(item_id_type(), user_id_type(), rating_type(), dispatcher_type()) -> ok_type().
 add_rating(Item_id, User_id, Rating, Dispatcher) ->
-	?LOG_DEBUG("add_rating User_id=~p, Item_id=~p, Rating=~p", [User_id, Item_id, Rating]),
+        % increment the monitoring metric for this request
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{book_rating, {inc, 1}}">>, undefined, undefined),
 
 	Query = lists:concat(["INSERT INTO user_item_ratings (user_id, item_id, rating) values (", User_id,  ",", Item_id, ",",  Rating, ")"]),
 	?LOG_DEBUG("query=~p", [Query]),
@@ -318,7 +342,8 @@ add_rating(Item_id, User_id, Rating, Dispatcher) ->
 
 -spec get_recommended_items(user_id_type(), dispatcher_type()) -> record_type().
 get_recommended_items(User_id, Dispatcher) ->
-	?LOG_DEBUG("get_recommended_items =~p", [User_id]),
+        % increment the monitoring metric for this request
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{recommended_books, {inc, 1}}">>, undefined, undefined),
 
 	Query = string:concat("select id, title from items left join user_item_recommendations on items.id = user_item_recommendations.item_id where user_item_recommendations.user_id=", User_id), 
 	?LOG_DEBUG("query=~p", [Query]),
@@ -346,7 +371,8 @@ get_recommended_items(User_id, Dispatcher) ->
 
 -spec find_unrated_items(user_id_type(), dispatcher_type()) -> record_type().
 find_unrated_items(User_id, Dispatcher) ->
-	?LOG_DEBUG("find_unrated_items =~p", [User_id]),
+        % increment the monitoring metric for this request
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{unrated_books, {inc, 1}}">>, undefined, undefined),
 
 	Query = string:concat("select id, title from items inner join user_items on items.id = user_items.item_id where user_items.rated_flag='N' and user_items.user_id=", User_id), 
 	?LOG_DEBUG("query=~p", [Query]),
@@ -375,7 +401,8 @@ find_unrated_items(User_id, Dispatcher) ->
 
 -spec add_user_item(user_id_type(), item_id_type(), dispatcher_type()) -> record_type().
 add_user_item(User_id, Item_id, Dispatcher) ->
-	?LOG_DEBUG("add_user_item User_id=~p, Item_id=~p", [User_id, Item_id]),
+        % increment the monitoring metric for this request
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{book_downloads, {inc, 1}}">>, undefined, undefined),
 
 	Query= lists:concat(["INSERT INTO user_items (user_id, item_id, rated_flag) values (",  User_id, ",", Item_id, ",'N')"]), 
 	?LOG_DEBUG("query=~p", [Query]),
@@ -402,7 +429,8 @@ add_user_item(User_id, Item_id, Dispatcher) ->
 
 -spec update_user_item(user_id_type(), item_id_type(), rated_flag_type(), dispatcher_type()) -> any().
 update_user_item(User_id, Item_id, Rated_flag, Dispatcher) ->
-	?LOG_DEBUG("update_user_item User_id=~p, Item_id=~p, Rated flag=~p", [User_id, Item_id, Rated_flag]),
+        % increment the monitoring metric for this request
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{book_rating, {inc, 1}}">>, undefined, undefined),
 
 	Query= lists:concat(["UPDATE user_items set rated_flag='", Rated_flag, "' where user_id=", User_id, " and item_id=", Item_id]), 
 	?LOG_DEBUG("query=~p", [Query]),
@@ -429,7 +457,8 @@ update_user_item(User_id, Item_id, Rated_flag, Dispatcher) ->
 
 -spec add_user(dispatcher_type()) -> record_type().
 add_user(Dispatcher) ->
-	?LOG_DEBUG("add_user", []),
+        % increment the monitoring metric for this request
+        cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NOTIFY, <<>>, <<"{new_user, {inc, 1}}">>, undefined, undefined),
 
 	Query= lists:concat(["INSERT INTO users (user_id, date_created) values (null, now());"]), 
 	?LOG_DEBUG("query=~p", [Query]),

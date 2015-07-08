@@ -22,7 +22,7 @@ DIALYZERLIBS= -pa /usr/local/lib/cloudi-1.5.0/lib/cloudi_core-1.5.0 -pa /usr/loc
 
 CLOUDI_HTTP=http://localhost:6467/cloudi/api/erlang
 BOOK_HTTP=http://localhost:6467/recommend/book
-
+FOLSOM_HTTP=http://localhost:6467/folsom
 
 #
 # Verify that the things we need to run are available on this system
@@ -103,4 +103,7 @@ test:
 #	curl $(BOOK_HTTP)/allbooks?id=47675
 #	curl -X POST -d "item=45388" $(BOOK_HTTP) 
 
-	
+statistics:
+	curl $(FOLSOM_HTTP)/metric_value?total_requests	
+	curl $(FOLSOM_HTTP)/metric_value?book_details
+	curl $(FOLSOM_HTTP)/metric_value?sql_queries
