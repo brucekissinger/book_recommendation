@@ -1,0 +1,392 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=windows-1252"/>
+    <title>Application Metrics</title>
+
+    <!-- link to JQuery javascript libraries -->
+    <script src="js/jquery-1.11.1.min.js"></script>
+
+    <!-- link to JQuery CSS definitions -->
+    <link rel="stylesheet" href="css/jquery-ui.css"/>
+
+    <!-- define an internal style -->
+    <style type="text/css">
+        .right {
+            float:right;
+        }
+        .loading {
+            color:CornflowerBlue;
+        }
+    </style>
+
+    <!--Load the AJAX API-->
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+
+    <script type="text/javascript">
+
+
+	function setupCharts() {
+
+      		// Create the data table - each line consists of a guage label and value
+      		chart1Data = google.visualization.arrayToDataTable([
+        		['Label', 'Value'],
+          		['Service Requests', 0]
+       		]);
+
+		// create a new data table
+ 		chart2Data = new google.visualization.DataTable();
+      		chart2Data.addColumn('datetime', 'Date/Time');
+		chart2Data.addColumn('number', 'SQL Queries');
+	}
+ 
+      // Draw a gauge with the number of book requests
+      function drawChart1() {
+
+	// Get the current value
+	var chartValue = parseInt($("#chart1_value").val());
+
+      	chart1Data = google.visualization.arrayToDataTable([
+        	['Label', 'Value'],
+          	['Service Requests', chartValue]
+       	]);
+
+        // Set chart options
+        var options = {
+          width: 150, height: 150
+//          redFrom: 90, redTo: 100,
+//         yellowFrom:75, yellowTo: 90,
+//          minorTicks: 5
+        };
+
+	// draw the chart
+        var chart = new google.visualization.Gauge(document.getElementById('chart1_div'));
+        chart.draw(chart1Data, options);
+
+    	}
+
+
+      // Draw a line chart with the number of SQL Queries processed
+      function drawChart2() {
+
+	// Get the current value
+	var chartValue = parseInt($("#chart2_value").val());
+
+	// add row
+	currentDateTime = new Date();
+        chart2Data.addRow([currentDateTime, chartValue]);
+
+	// set chart options
+        var options = {
+          title: 'SQL Queries',
+	  curveType:  'none',
+          legend: { position: 'bottom' },
+	  explorer: {}
+        };
+
+	var chart = new google.visualization.LineChart(document.getElementById('chart2_div'));
+        chart.draw(chart2Data, options);
+
+    	}
+
+
+      // note - you need a different objects (e.g., web sockets, gauges, message handlers, and metric names defined for each 
+      // object that needs to be monitored 
+      var web_socket1 = undefined;
+      var web_socket2 = undefined;
+      var gauge1 = undefined;
+      var gauge2 = undefined;
+      var handle_message1 = undefined;
+      var handle_message2 = undefined;
+      var metric_name1 = "total_requests";
+      var metric_name2 = "sql_queries";
+
+      // adjust the port for your environment 
+      var websocket_port = "6464";
+
+      // the following variables should not need to be changed 
+      var service_name = "/folsom/metric_value";
+      var websocket_url = "";
+      var interval_id = undefined; 
+
+	var chart1Data = undefined;
+	var chart2Data = undefined;
+
+      // overall procedure to handle refreshing the gauge values
+      function refreshGauges() {
+	if (chart1Data === undefined) {
+		setupCharts();
+	}
+
+
+          // call the metric services to get the latest values 
+          openSocket1();
+          openSocket2();
+      }
+
+      function is(type, obj) {
+          if (obj === undefined)
+              return type === 'undefined';
+          else if (obj === null)
+              return type === 'null';
+          else 
+              return type === Object.prototype.toString.call(obj).slice(8,  - 1);
+      }
+
+      String.prototype.startsWith = function (str) {
+          return this.slice(0, str.length) == str;
+      };
+
+
+      // This function opens a web socket used to get the current metric value
+      function openSocket1() {
+          if (!("WebSocket" in window)) {
+              $('#connectionStatus').text("Not connected");
+              alert("This browser does not support WebSockets");
+              return;
+          }
+
+          // open the websocket if needed
+          if (web_socket1 == undefined || web_socket1.readyState != 0) {
+              $('#connectionStatus').text("Connecting");
+              websocket_url = "ws://" + $("#hostname").val() + ":" + websocket_port + service_name;
+              web_socket1 = new WebSocket(websocket_url);
+              console.log("Connecting to " + websocket_url);
+          }
+
+          // define function that is called when an error occurs with the websocket
+          web_socket1.onerror = function () {
+              $('#connectionStatus').text("Error");
+              console.log("Websocket error");
+
+              // turn off the timed page refresh
+              if (interval_id != undefined) {
+                 clearInterval(interval_id);
+                 interval_id = undefined;
+              }
+
+              // hide the loading message
+              $('#loadingMessage').hide();
+
+              alert("Error connecting to websocket " + websocket_url);
+          };
+
+          // define function that is called when the web socket is opened
+          web_socket1.onopen = function () {
+              $('#connectionStatus').text("Connected");
+              console.log("Connected");
+              console.log("Requesting " + metric_name1);
+              web_socket1.send(metric_name1);
+          };
+
+          // define function that is called when data is available on the websocket 
+          handle_message1 = function (data) {
+              if (data.startsWith("notification:")) {
+                  // client state check to determine this is an incoming
+                  // service request, not an incoming response
+                  console.log("Request (in): " + data);
+
+                  var response = "ok";
+                  web_socket1.send(response);
+                  console.log("Response (in): " + response);
+              }
+              else {
+                  console.log("Response (out): " + data);
+
+                  // hide the loading message
+                  $('#loadingMessage').hide();
+
+                  if (data != "got connect! yay!") {
+
+                      	// refresh the gauge value
+          		$("#chart1_value").val(data);
+			drawChart1();
+
+                      // setup time interval to refresh page
+                      if (interval_id == undefined) {
+                          interval_id = setInterval("refreshGauges();", 60000);
+                      }
+
+                  }
+
+              }
+          }; 
+
+
+          // define function that is called when a message is received on the web socket 
+            web_socket1.onmessage = function (evt) {
+              var data = evt.data;
+              if (is("Blob", data)) {
+                  // for the example, treat binary as text
+                  var reader = new FileReader();
+                  reader.readAsText(data, "text/plain");
+                  reader.onload = function (reader_evt) {
+                      data = reader_evt.target.result;
+                      handle_message1(data);
+                  };
+              }
+              else {
+                  handle_message1(data);
+              }
+          };
+
+
+          // define function that is called when the websocket is closed
+          web_socket1.onclose = function () {
+              $('#connectionStatus').text("Not connected");
+              web_socket1 = undefined;
+              console.log("Connection closed");
+          };
+
+      }
+ 
+
+      // This function opens a web socket used to get the current metric value
+      function openSocket2() {
+          if (!("WebSocket" in window)) {
+              $('#connectionStatus').text("Not connected");
+              alert("This browser does not support WebSockets");
+              return;
+          }
+
+          // open the websocket if needed
+          if (web_socket2 == undefined || web_socket2.readyState != 0) {
+              $('#connectionStatus').text("Connecting");
+              websocket_url = "ws://" + $("#hostname").val() + ":" + websocket_port + service_name;
+              web_socket2 = new WebSocket(websocket_url);
+              console.log("Connecting to " + websocket_url);
+          }
+
+          // define function that is called when an error occurs with the websocket
+          web_socket2.onerror = function () {
+              $('#connectionStatus').text("Error");
+              console.log("Websocket error");
+
+              // turn off the timed page refresh
+              if (interval_id != undefined) {
+                 clearInterval(interval_id);
+                 interval_id = undefined;
+              }
+
+              // hide the loading message
+              $('#loadingMessage').hide();
+
+              alert("Error connecting to websocket " + websocket_url);
+          };
+
+          // define function that is called when the web socket is opened
+          web_socket2.onopen = function () {
+              $('#connectionStatus').text("Connected");
+              console.log("Connected");
+              console.log("Requesting " + metric_name2);
+              web_socket2.send(metric_name2);
+          };
+
+          // define function that is called when data is available on the websocket 
+          handle_message2 = function (data) {
+              if (data.startsWith("notification:")) {
+                  // client state check to determine this is an incoming
+                  // service request, not an incoming response
+                  console.log("Request (in): " + data);
+
+                  var response = "ok";
+                  web_socket2.send(response);
+                  console.log("Response (in): " + response);
+              }
+              else {
+                  console.log("Response (out): " + data);
+
+                  // hide the loading message
+                  $('#loadingMessage').hide();
+
+                  if (data != "got connect! yay!") {
+
+                      	// add the new value to the chart 
+          		$("#chart2_value").val(data);
+			drawChart2();
+                  }
+
+              }
+          }; 
+
+
+          // define function that is called when a message is received on the web socket 
+            web_socket2.onmessage = function (evt) {
+              var data = evt.data;
+              if (is("Blob", data)) {
+                  // for the example, treat binary as text
+                  var reader = new FileReader();
+                  reader.readAsText(data, "text/plain");
+                  reader.onload = function (reader_evt) {
+                      data = reader_evt.target.result;
+                      handle_message2(data);
+                  };
+              }
+              else {
+                  handle_message2(data);
+              }
+          };
+
+
+          // define function that is called when the websocket is closed
+          web_socket2.onclose = function () {
+              $('#connectionStatus').text("Not connected");
+              web_socket2 = undefined;
+              console.log("Connection closed");
+          };
+
+      }
+
+      // Load the Visualization API and the piechart package.
+      google.load('visualization', '1.0', {'packages':['corechart', 'gauge']});
+      
+      // Set a callback to run when the Google Visualization API is loaded.
+      //google.setOnLoadCallback(drawChart1);
+      google.setOnLoadCallback(refreshGauges);
+
+    </script>
+  </head>
+  <body>
+    <div id="logo">
+      <img class="right" src="powered_by_cloudi.png"></img>
+       
+      <h1>Application Metrics</h1>
+    </div>
+    <div id="loadingMessage">
+      <h2 class="loading">Waiting for data...</h2>
+    </div>
+    <div>
+      <input id="hostname" type="text" value="localhost"  title="Host name or address to be monitored"></input>
+       
+      <button class="left" onclick="refreshGauges();">Refresh Now</button>
+       
+      <label class="right" id="connectionStatus"></label>
+    </div>
+
+
+    <!--Div that will hold the charts-->
+    <div id="chart1_div" style="width:400; height:300"></div>
+    <input id="chart1_value" type="hidden" value="0"></input>
+
+    <div id="chart2_div" style="width:400; height:300"></div>
+    <input id="chart2_value" type="hidden" value="0"></input>
+ 
+    <script type="text/javascript">
+      $(document).ready(function () {
+
+          // assign default hostname
+          $("#hostname").val(location.host);
+	
+          // show the loading message
+          $('#loadingMessage').show();
+
+          // set the connection status 
+          $('#connectionStatus').text("Not connected");
+
+          // initialze the gauges
+          refreshGauges();
+      });
+
+    </script>
+  </body>
+</html>
