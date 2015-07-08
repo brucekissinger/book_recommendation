@@ -78,16 +78,6 @@ cloudi_service_init(_Args, _Prefix, _Timeout, Dispatcher) ->
 	cloudi_service:subscribe(Dispatcher, "unrated/get"),
 
         % create new monitoring metrics
-%        cloudi_x_folsom_metrics:new_counter(total_requests),
-%        cloudi_x_folsom_metrics:new_counter(new_books),
-%        cloudi_x_folsom_metrics:new_counter(popular_books),
-%        cloudi_x_folsom_metrics:new_counter(recommended_books),
-%        cloudi_x_folsom_metrics:new_counter(book_details),
-%        cloudi_x_folsom_metrics:new_counter(book_downloads),
-%        cloudi_x_folsom_metrics:new_counter(book_rating),
-%        cloudi_x_folsom_metrics:new_counter(new_user),
-%        cloudi_x_folsom_metrics:new_counter(unrated_books),
-%        cloudi_x_folsom_metrics:new_counter(sql_queries),
         cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NEW, <<>>, <<"total_requests">>, undefined, undefined),
         cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NEW, <<>>, <<"new_books">>, undefined, undefined),
         cloudi_service:send_async(Dispatcher, ?NAME_FOLSOM_NEW, <<>>, <<"popular_books">>, undefined, undefined),
